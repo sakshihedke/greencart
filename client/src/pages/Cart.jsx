@@ -70,7 +70,8 @@ const Cart = () => {
           const { data } = await axios.post('/api/order/cod', orderData);
           if (data.success) {
             toast.success(data.message);
-            setCartItems({});
+            setCartItems({});        // clears context
+            setCartArray([]);        // clears local cart state
             navigate('/my-orders');
           } else {
             toast.error(data.message);
@@ -78,7 +79,9 @@ const Cart = () => {
         } else {
           const { data } = await axios.post('/api/order/stripe', orderData);
           if (data.success) {
-            window.location.replace(data.url);
+            setCartItems({});
+            setCartArray([]);
+            window.location.replace(data.url); // Stripe handles redirection
           } else {
             toast.error(data.message);
           }
