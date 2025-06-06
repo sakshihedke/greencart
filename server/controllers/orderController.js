@@ -109,52 +109,49 @@ export const stripeWebhook = async (req, res) => {
   let event;
 
   try {
-    // Use rawBody (you must configure Express middleware accordingly)
-    event = stripeInstance.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripeInstance.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err) {
-    console.error("Webhook Error:", err.message);
+    console.error("❌ Webhook signature verification failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object;
-        const { orderId, userId } = session.metadata;
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const { userId, orderId } = session.metadata;
 
-        // Mark order as paid
-        await Order.findByIdAndUpdate(orderId, { isPaid: true });
-        await User.findByIdAndUpdate(userId, { cartItems: [] });
-        console.log(`Cleared cart for user ${userId} after payment`);
+      console.log("✅ Payment success for:", userId);
 
-        // Clear user's cart properly (empty array)
-        await User.findByIdAndUpdate(userId, { cartItems: [] });
-        break;
+      await Order.findByIdAndUpdate(orderId, { isPaid: true });
+
+      const user = await User.findByIdAndUpdate(userId, { cartItems: [] });
+      console.log(`🛒 Cart cleared for user ${userId}`);
+
+    } else if (event.type === "payment_intent.payment_failed") {
+      const paymentIntent = event.data.object;
+      const sessionList = await stripeInstance.checkout.sessions.list({
+        payment_intent: paymentIntent.id,
+      });
+
+      const session = sessionList.data[0];
+      if (session?.metadata?.orderId) {
+        await Order.findByIdAndDelete(session.metadata.orderId);
       }
-
-      case "payment_intent.payment_failed": {
-        const paymentIntent = event.data.object;
-        const sessionList = await stripeInstance.checkout.sessions.list({
-          payment_intent: paymentIntent.id,
-        });
-
-        const session = sessionList.data[0];
-        if (session?.metadata?.orderId) {
-          await Order.findByIdAndDelete(session.metadata.orderId);
-        }
-        break;
-      }
-
-      default:
-        console.warn(`Unhandled event type: ${event.type}`);
+    } else {
+      console.log(`Unhandled event type: ${event.type}`);
     }
 
     res.json({ received: true });
   } catch (err) {
-    console.error("Webhook handling error:", err);
+    console.error("❌ Webhook handler failed:", err);
     res.status(500).send("Internal Server Error");
   }
 };
+
 
 // GET USER ORDERS
 export const getUserOrders = async (req, res) => {
