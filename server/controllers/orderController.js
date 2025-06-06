@@ -64,13 +64,14 @@ export const placeOrderStripe = async (req, res) => {
 
     amount += Math.floor(amount * 0.02); // Add 2% tax
 
+    // Create order with isPaid false because payment not done yet
     const order = await Order.create({
       userId,
       items,
       amount,
       address,
       paymentType: "Online",
-      isPaid: true,
+      isPaid: false,
     });
 
     const line_items = productData.map((item) => ({
@@ -102,14 +103,14 @@ export const placeOrderStripe = async (req, res) => {
   }
 };
 
-
 // STRIPE WEBHOOK - HANDLE EVENTS
 export const stripeWebhook = async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
 
   try {
-    event = stripeInstance.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    // Use rawBody (you must configure Express middleware accordingly)
+    event = stripeInstance.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error("Webhook Error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -117,13 +118,15 @@ export const stripeWebhook = async (req, res) => {
 
   try {
     switch (event.type) {
-      case "payment_intent.succeeded":
       case "checkout.session.completed": {
         const session = event.data.object;
         const { orderId, userId } = session.metadata;
 
+        // Mark order as paid
         await Order.findByIdAndUpdate(orderId, { isPaid: true });
-        await User.findByIdAndUpdate(userId, { cartItems: {} });
+
+        // Clear user's cart properly (empty array)
+        await User.findByIdAndUpdate(userId, { cartItems: [] });
         break;
       }
 
