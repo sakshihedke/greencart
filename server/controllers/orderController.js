@@ -71,7 +71,7 @@ export const placeOrderStripe = async (req, res) => {
       amount,
       address,
       paymentType: "Online",
-      isPaid: false,
+      isPaid: true,
     });
 
     const line_items = productData.map((item) => ({
