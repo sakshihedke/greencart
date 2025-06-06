@@ -69,7 +69,7 @@ export const placeOrderStripe = async (req, res) => {
       amount,
       address,
       paymentType: "Online",
-      isPaid: true 
+      isPaid: true,
     });
 
     const line_items = productData.map((item) => ({
@@ -158,14 +158,19 @@ export const getUserOrders = async (req, res) => {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
 
-    const orders = await Order.find({
+    const rawOrders = await Order.find({
       userId,
       $or: [{ paymentType: "COD" }, { isPaid: true }],
     })
       .populate("items.product")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, orders });
+    const filteredOrders = rawOrders.map(order => {
+      const validItems = order.items.filter(item => item.product !== null);
+      return { ...order.toObject(), items: validItems };
+    });
+
+    res.json({ success: true, orders: filteredOrders });
   } catch (error) {
     console.error("❌ getUserOrders error:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -175,13 +180,18 @@ export const getUserOrders = async (req, res) => {
 // GET ALL ORDERS (ADMIN / SELLER)
 export const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find({
+    const rawOrders = await Order.find({
       $or: [{ paymentType: "COD" }, { isPaid: true }],
     })
       .populate("items.product")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, orders });
+    const filteredOrders = rawOrders.map(order => {
+      const validItems = order.items.filter(item => item.product !== null);
+      return { ...order.toObject(), items: validItems };
+    });
+
+    res.json({ success: true, orders: filteredOrders });
   } catch (error) {
     console.error("❌ getAllOrders error:", error);
     res.status(500).json({ success: false, message: error.message });
