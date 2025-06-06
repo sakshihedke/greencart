@@ -41,10 +41,11 @@ export const placeOrderCOD = async (req, res) => {
 // PLACE ORDER - STRIPE ONLINE PAYMENT
 export const placeOrderStripe = async (req, res) => {
   try {
-    const { userId, items, address } = req.body;
+    const userId = req.userId;  // <-- get from auth middleware, not from req.body
+    const { items, address } = req.body;
     const { origin } = req.headers;
 
-    if (!address || items.length === 0) {
+    if (!address || !items || items.length === 0) {
       return res.json({ success: false, message: "Invalid data" });
     }
 
@@ -71,9 +72,6 @@ export const placeOrderStripe = async (req, res) => {
       paymentType: "Online",
       isPaid: true,
     });
-
-    // ✅ Clear cart here as well
-    await User.findByIdAndUpdate(userId, { cartItems: {} });
 
     const line_items = productData.map((item) => ({
       price_data: {
