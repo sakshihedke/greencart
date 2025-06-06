@@ -72,6 +72,9 @@ export const placeOrderStripe = async (req, res) => {
       isPaid: true,
     });
 
+    // ✅ Clear cart here as well
+    await User.findByIdAndUpdate(userId, { cartItems: {} });
+
     const line_items = productData.map((item) => ({
       price_data: {
         currency: "usd",
@@ -100,6 +103,7 @@ export const placeOrderStripe = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // STRIPE WEBHOOK - HANDLE EVENTS
 export const stripeWebhook = async (req, res) => {
