@@ -124,6 +124,8 @@ export const stripeWebhook = async (req, res) => {
 
         // Mark order as paid
         await Order.findByIdAndUpdate(orderId, { isPaid: true });
+        await User.findByIdAndUpdate(userId, { cartItems: [] });
+        console.log(`Cleared cart for user ${userId} after payment`);
 
         // Clear user's cart properly (empty array)
         await User.findByIdAndUpdate(userId, { cartItems: [] });
