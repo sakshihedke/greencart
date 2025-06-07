@@ -24,18 +24,21 @@ export const updateCart = async (req, res) => {
 
 
 // Return the authenticated user’s saved cartItems array
-const getCart = () => {
-  let tempArray = [];
+export const getCart = async (req, res) => {
+  try {
+    const userId = req.userId;  // directly from req.userId set by authUser middleware
 
-  for (const key in cartItems) {
-    const product = products.find((item) => item._id === key);
-    if (product) {
-      tempArray.push({
-        ...product,
-        quantity: cartItems[key],
-      });
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
-  }
 
-  setCartArray(tempArray);
+    const user = await User.findById(userId, 'cartItems');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.json({ success: true, cartItems: user.cartItems || {} });
+  } catch (error) {
+    console.error('Error getting cart:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
