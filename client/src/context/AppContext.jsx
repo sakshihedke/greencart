@@ -20,19 +20,18 @@ export const AppContextProvider = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserLogin, setShowUserLogin] = useState(false);
 
-    // —————— Fetch user ——————
+  // —————— Fetch user ——————
   const fetchUser = async () => {
     try {
       const { data } = await axios.get('/api/user/is-auth');
       if (data.success) {
         setUser(data.user);
-        setCartItems(data.user.cartItems || {});  // make sure this resets cartItems
+        setCartItems(data.user.cartItems || {});
       }
     } catch (err) {
       setUser(null);
     }
   };
-
 
   // —————— Fetch seller status ——————
   const fetchSeller = async () => {
@@ -68,6 +67,7 @@ export const AppContextProvider = ({ children }) => {
     toast.success('Added to cart');
   };
 
+
   const removeFromCart = (productId) => {
     if (!productId) return;
     setCartItems((prev = {}) => {
@@ -85,12 +85,22 @@ export const AppContextProvider = ({ children }) => {
 
   const updateCartItem = (itemId, quantity) => {
     if (!itemId || quantity < 0) return;
-    setCartItems((prev = {}) => ({
-      ...prev,
-      [itemId]: quantity,
-    }));
+
+    setCartItems(prev => {
+      const updated = { ...prev };
+
+      if (quantity === 0) {
+        delete updated[itemId];
+      } else {
+        updated[itemId] = quantity;
+      }
+
+      return updated;
+    });
+
     toast.success('Cart updated');
   };
+
 
   // —————— Cart count & total ——————
   const getCartCount = () => {

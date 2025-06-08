@@ -50,17 +50,25 @@ export const placeOrderStripe = async (req, res) => {
     }
 
     let productData = [];
-    let amount = 0;
-
-    for (const item of items) {
+    let amount = await items.reduce(async(acc, item) => {
       const product = await Product.findById(item.product);
       productData.push({
         name: product.name,
         price: product.offerPrice,
         quantity: item.quantity,
       });
-      amount += product.offerPrice * item.quantity;
-    }
+      return acc + product.offerPrice * item.quantity;
+    },0);
+
+    // for (const item of items) {
+    //   const product = await Product.findById(item.product);
+    //   productData.push({
+    //     name: product.name,
+    //     price: product.offerPrice,
+    //     quantity: item.quantity,
+    //   });
+    //   amount += product.offerPrice * item.quantity;
+    // }
 
     amount += Math.floor(amount * 0.02); // Add 2% tax
 
@@ -71,9 +79,8 @@ export const placeOrderStripe = async (req, res) => {
       amount,
       address,
       paymentType: "Online",
-      isPaid: true,
     });
-
+    constInstance = new stripe(process.env.STRIPE_SECRET_KEY);
     const line_items = productData.map((item) => ({
       price_data: {
         currency: "usd",
@@ -96,7 +103,7 @@ export const placeOrderStripe = async (req, res) => {
       },
     });
 
-    res.json({ success: true, url: session.url });
+    return res.json({ success: true, url: session.url });
   } catch (error) {
     console.error("❌ placeOrderStripe error:", error);
     res.status(500).json({ success: false, message: error.message });
