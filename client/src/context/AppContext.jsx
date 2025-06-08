@@ -20,18 +20,19 @@ export const AppContextProvider = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserLogin, setShowUserLogin] = useState(false);
 
-  // —————— Fetch user ——————
+    // —————— Fetch user ——————
   const fetchUser = async () => {
     try {
       const { data } = await axios.get('/api/user/is-auth');
       if (data.success) {
         setUser(data.user);
-        setCartItems(data.user.cartItems || {});
+        setCartItems(data.user.cartItems || {});  // make sure this resets cartItems
       }
     } catch (err) {
       setUser(null);
     }
   };
+
 
   // —————— Fetch seller status ——————
   const fetchSeller = async () => {
