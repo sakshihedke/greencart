@@ -2,7 +2,7 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import stripe from "stripe";
 import User from "../models/User.js";
-import mongoose from "mongoose";
+
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
 
 // PLACE ORDER - CASH ON DELIVERY
@@ -39,11 +39,9 @@ export const placeOrderCOD = async (req, res) => {
 };
 
 // PLACE ORDER - STRIPE ONLINE PAYMENT
-import mongoose from "mongoose";
-
 export const placeOrderStripe = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId;  // <-- get from auth middleware, not from req.body
     const { items, address } = req.body;
     const { origin } = req.headers;
 
@@ -56,41 +54,25 @@ export const placeOrderStripe = async (req, res) => {
 
     for (const item of items) {
       const product = await Product.findById(item.product);
-      if (!product) {
-        return res.status(400).json({ success: false, message: "Invalid product in cart" });
-      }
-
       productData.push({
         name: product.name,
         price: product.offerPrice,
         quantity: item.quantity,
       });
-
       amount += product.offerPrice * item.quantity;
     }
 
     amount += Math.floor(amount * 0.02); // Add 2% tax
 
-    // Create order with isPaid = false initially
+    // Create order with isPaid false because payment not done yet
     const order = await Order.create({
       userId,
       items,
       amount,
       address,
       paymentType: "Online",
-      isPaid: false, // Correct value for unpaid Stripe order
+      isPaid: true,
     });
-
-    // ⚠️ Remove ordered items from the user's cart immediately
-    const user = await User.findById(userId);
-    const updatedCart = user.cartItems.filter(cartItem =>
-      !items.some(orderItem =>
-        mongoose.Types.ObjectId(cartItem.product).equals(orderItem.product)
-      )
-    );
-
-    user.cartItems = updatedCart;
-    await user.save();
 
     const line_items = productData.map((item) => ({
       price_data: {
@@ -98,7 +80,7 @@ export const placeOrderStripe = async (req, res) => {
         product_data: {
           name: item.name,
         },
-        unit_amount: Math.floor(item.price + item.price * 0.02) * 100, // in cents
+        unit_amount: Math.floor(item.price + item.price * 0.02) * 100, // cents
       },
       quantity: item.quantity,
     }));
@@ -115,13 +97,11 @@ export const placeOrderStripe = async (req, res) => {
     });
 
     res.json({ success: true, url: session.url });
-
   } catch (error) {
     console.error("❌ placeOrderStripe error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 // STRIPE WEBHOOK - HANDLE EVENTS
 export const stripeWebhook = async (req, res) => {
@@ -140,18 +120,18 @@ export const stripeWebhook = async (req, res) => {
   }
 
   try {
-      if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const { userId, orderId } = session.metadata;
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const { userId, orderId } = session.metadata;
 
-    console.log("✅ Payment success for:", userId);
+      console.log("✅ Payment success for:", userId);
 
-    // ✅ Mark order as paid
-    await Order.findByIdAndUpdate(orderId, { isPaid: true });
+      await Order.findByIdAndUpdate(orderId, { isPaid: true });
 
-    // ❌ Do NOT remove items from cart here (already done in placeOrderStripe)
-    console.log(`💰 Order ${orderId} marked as paid`);
-  } else if (event.type === "payment_intent.payment_failed") {
+      const user = await User.findByIdAndUpdate(userId, { cartItems: [] });
+      console.log(`🛒 Cart cleared for user ${userId}`);
+
+    } else if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object;
       const sessionList = await stripeInstance.checkout.sessions.list({
         payment_intent: paymentIntent.id,
