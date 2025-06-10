@@ -159,6 +159,8 @@ export const stripeWebhook = async (req, res) => {
 
 
 // GET USER ORDERS
+// GET USER ORDERS
+// GET USER ORDERS
 export const getUserOrders = async (req, res) => {
   try {
     const userId = req.userId;
@@ -167,9 +169,10 @@ export const getUserOrders = async (req, res) => {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
 
+    // ✅ Include all orders: both COD and Online, regardless of isPaid status
     const rawOrders = await Order.find({
       userId,
-      $or: [{ paymentType: "COD" }, { isPaid: true }],
+      paymentType: { $in: ["COD", "Online"] }
     })
       .populate("items.product")
       .sort({ createdAt: -1 });
@@ -185,6 +188,8 @@ export const getUserOrders = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
 
 // GET ALL ORDERS (ADMIN / SELLER)
 export const getAllOrders = async (req, res) => {
