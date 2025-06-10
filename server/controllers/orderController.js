@@ -39,9 +39,10 @@ export const placeOrderCOD = async (req, res) => {
 };
 
 // PLACE ORDER - STRIPE ONLINE PAYMENT
+// PLACE ORDER - STRIPE ONLINE PAYMENT
 export const placeOrderStripe = async (req, res) => {
   try {
-    const userId = req.userId;  // <-- get from auth middleware, not from req.body
+    const userId = req.userId; // <-- get from auth middleware
     const { items, address } = req.body;
     const { origin } = req.headers;
 
@@ -71,8 +72,11 @@ export const placeOrderStripe = async (req, res) => {
       amount,
       address,
       paymentType: "Online",
-      isPaid: true,
+      isPaid: false, // Set to false initially
     });
+
+    // 🛒 Clear the cart immediately on "Proceed to Checkout"
+    await User.findByIdAndUpdate(userId, { cartItems: [] });
 
     const line_items = productData.map((item) => ({
       price_data: {
@@ -102,6 +106,7 @@ export const placeOrderStripe = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // STRIPE WEBHOOK - HANDLE EVENTS
 export const stripeWebhook = async (req, res) => {
